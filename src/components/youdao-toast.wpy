@@ -1,0 +1,75 @@
+<template>
+  <view class="wrapper">
+    <view class="inner">
+      <view class="main">
+        <view>单词释义 【{{res.query}}】</view>
+        <view class="phonetic">音标: [{{res.basic.phonetic}}]</view>
+        <repeat for="{{res.basic.explains}}">
+          <view class="explains">{{item}}</view>
+        </repeat>
+        <view>
+          <button class="btn-speech" hover-class="hover-speech" @tap="playSpeech1">发音1</button>
+          <button class="btn-speech" hover-class="hover-speech" @tap="playSpeech2">发音2</button>
+        </view>
+      </view>
+      <view class="footer">
+        <button class="btn-footer btn-cancel" hover-class="none" @tap="closeToast">取消</button>
+        <button class="btn-footer btn-add" hover-class="none" @tap="addNewWord">添加生词</button>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  export default class TranslateToast extends wepy.component {
+    props = {
+      res: Object
+    }
+    customData = {
+      innerAudio1: wepy.createInnerAudioContext(),
+      innerAudio2: wepy.createInnerAudioContext()
+    }
+    events = {
+    }
+    methods = {
+      playSpeech1 () {
+        console.log(this.innerAudio1)
+        this.customData.innerAudio1.play()
+      },
+      playSpeech2 () {
+        this.customData.innerAudio2.play()
+      },
+      closeToast () {
+        this.$emit('closeYoudaoToast')
+      }
+    }
+    watch = {
+      res (newRes, oldRes) {
+        this.customData.innerAudio1.src = newRes.basic['uk-speech']
+        this.customData.innerAudio2.src = newRes.basic['us-speech']
+      }
+    }
+    onLoad () {
+    }
+  }
+</script>
+
+<style>
+.wrapper{display: flex; justify-content: center; align-items: center;}
+.inner {background: #fff; width: 80%; border-radius: 6px; font-size: 14px;}
+.main { padding: 10px;}
+.phonetic {color: lightskyblue;}
+.explains {color: #aaa;}
+
+.btn-speech {display: inline-block; font-size: 12px; padding: 0; color: #fff; background: rgba(0, 0, 0, 0.3); margin:0 2px; padding: 0 5px; line-height: 20px;}
+.btn-speech::after {border: none;}
+.hover-speech {background: rgba(0, 0, 0, 0.1);}
+
+.footer {position: relative; border-top: 1rpx solid #eee;}
+.footer::after {content: ''; display: block; width: 1rpx; position: absolute; height: 100%; top:0; left: 50%; background: #eee;}
+.btn-footer {display: inline-block; width: 50%; font-size: 14px; background: #fff;}
+.btn-footer::after {border: none;}
+.btn-cancel {color: red;}
+.btn-add {color: #22b14c;}
+</style>

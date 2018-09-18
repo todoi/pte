@@ -1,0 +1,114 @@
+<style lang="less">
+  .btn-container { text-align: center; }
+  .youdao-toast {position: absolute; height: 100%; top: 0; left: 0; width: 100%; background: rgba(0, 0, 0, 0.6);}
+</style>
+<template>
+  <view class="container">
+    <repeat for="{{getWordArray}}">
+      <text data-word="{{item}}" @longtap="translateWord">{{item}} </text>
+    </repeat>
+    <view class="btn-container">
+      <button size="mini" @tap="playAudio">播放</button>
+    </view>
+    <youdao-toast class="youdao-toast" :res.sync="youdaoRes" wx:if="{{showYoudaoToast}}" />
+  </view>
+</template>
+
+<script>
+  /* global requirePlugin */
+  import wepy from 'wepy'
+  import YoudaoToast from '../components/youdao-toast'
+  let plugin = requirePlugin('WechatSI')
+  let MD5 = require('../vendors/md5')
+  console.log(plugin)
+  
+  export default class Index extends wepy.page {
+    config = {
+      navigationBarTitleText: 'test'
+    }
+    components = {
+      'youdao-toast': YoudaoToast
+    }
+    data = {
+      text: 'hello world! this is youdao.',
+      youdaoRes: {
+        basic: {}
+      },
+      showYoudaoToast: false
+    }
+    customData = {
+      innerAudio: wepy.createInnerAudioContext()
+    }
+    computed = {
+      getWordArray () {
+        return this.text.split(' ')
+      }
+    }
+    events = {
+      closeYoudaoToast () {
+        this.showYoudaoToast = false
+      }
+    }
+    methods = {
+      translateWord ($event) {
+        let {query, from, to, appKey, salt, sign} = this.getQueryArgs($event)
+        wepy.request({
+          url: `http://openapi.youdao.com/api?q=${query}&from=${from}&to=${to}&appKey=${appKey}&salt=${salt}&sign=${sign}`,
+          method: 'GET',
+          success: (res) => {
+            if (res.data.errorCode > 0) {
+              console.log('youdao translate invoked fail')
+            } else {
+              console.log(res.data)
+              this.youdaoRes = res.data
+              this.showYoudaoToast = true
+              this.$apply()
+            }
+          },
+          fail: (err) => {
+            console.log('err', err)
+            this.$apply()
+          }
+        })
+      },
+      playAudio () {
+        console.log('播放音乐')
+        this.customData.innerAudio.play()
+      }
+    }
+    onLoad() {
+      console.log('onLoad')
+    }
+    onReady() {
+      console.log('讯飞语音合成请求')
+      // 发送请求让后台下载讯飞科技的语音合成
+      wepy.request({
+        url: 'http://localhost:8888',
+        data: JSON.stringify({text: this.text}),
+        method: 'POST',
+        success: (res) => {
+          console.log(res.data.url)
+          this.customData.innerAudio.src = res.data.url
+          this.$apply()
+        },
+        fail: (err) => {
+          console.log('err', err)
+          this.$apply()
+        }
+      })
+    }
+    // 返回有道翻译 api 调用所需的参数
+    getQueryArgs ($event) {
+      let query = $event.currentTarget.dataset.word
+      query = query.replace(/\W*/g, '')
+      let salt = Date.now().toString()
+      let appKey = ''
+      let key = ''
+      let from = 'EN'
+      let to = 'zh-CHS'
+      let str1 = appKey + query + salt + key
+      let sign = MD5(str1)
+      return {query, from, to, appKey, salt, sign}
+    }
+  }
+</script>
