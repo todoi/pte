@@ -1,43 +1,126 @@
 <style lang="less">
   .btn-container { text-align: center; }
-  .youdao-toast {position: absolute; height: 100%; top: 0; left: 0; width: 100%; background: rgba(0, 0, 0, 0.6);}
+  .translate-toast {position: absolute; height: 100%; top: 0; left: 0; width: 100%; background: rgba(0, 0, 0, 0.6);}
+  .recorder-wrapper {position: fixed; bottom: 0; left: 0; width: 100%; display: flex; border-top: 1rpx solid #eee; text-align: center;}
+  .btn-pre, .btn-next, .btn-recorder {width: 33.3333%; line-height: 40px; border-right: 1rpx solid #eee; color: #aaa;}
+  .btn-next {border-right: 0;}
+  .btn-recorder {color: #00A2E8;}
+  .btn-recorder.end-recorder {color: red;}
+  .btn-recorder.delete-recorder {color: #fff; background: red;}
+  .progress-wrapper {width: 100%; height: 40px; position: relative; background: #00A2E8;}
+  .progress {height: 100%; position: absolute; transition: all 1s linear;}
+  .progress-text {width: 100%; height: 100%; position: absolute; display: flex; align-items: center; justify-content: center; color: #fff;}
+  .progress.be-doing {background: red; transition: width 1s linear;}
+  .progress.completed {background: #ddd; transition: all 0.5s linear;}
 </style>
 <template>
   <view class="container">
     <repeat for="{{getWordArray}}">
-      <text data-word="{{item}}" @longtap="translateWord">{{item}} </text>
+      <text data-word="{{item}}" @longpress="chooseWord">{{item}} </text>
     </repeat>
     <view class="btn-container">
-      <button size="mini" @tap="playAudio">播放</button>
+      <button size="mini" @tap="playTTS">播放语音合成</button>
     </view>
-    <youdao-toast class="youdao-toast" :res.sync="youdaoRes" wx:if="{{showYoudaoToast}}" />
+    <translate-toast class="translate-toast" :translateObj.sync="translateObj" hidden="{{hideTranslateToast}}" />
+    <view class="progress-wrapper">
+      <view class="progress {{progressStatus.class}}" style="width:{{progressStatus.width}}"></view>
+      <view class="progress-text">{{progressStatus.text}}</view>
+    </view>
+    <view class="btn-recorder" hidden="{{hideBtnRecorder}}">
+      <button @tap="playRecorder">播放录音</button>
+    </view>
+    <view class="recorder-wrapper" @touchend="stopRecord" @touchmove="moveRecord">
+      <view class="btn-pre">上一个</view>
+      <view class="btn-recorder {{btnRecorderStatus.class}}" @touchstart="startRecord">{{btnRecorderStatus.text}}</view>
+      <view class="btn-next">下一个</view>
+    </view>
   </view>
 </template>
 
 <script>
   /* global requirePlugin */
   import wepy from 'wepy'
-  import YoudaoToast from '../components/youdao-toast'
+  import TranslateToast from '../components/translate-toast'
   let plugin = requirePlugin('WechatSI')
-  let MD5 = require('../vendors/md5')
-  console.log(plugin)
+  // 进度条的四种状态
+  let progressStatusObj = {
+    nothing: {
+      text: '暂无录音',
+      class: '',
+      width: '0'
+    },
+    beDoing: {
+      text: '正在录音',
+      class: 'be-doing',
+      width: '0'
+    },
+    completed: {
+      text: '录音完成',
+      class: 'completed',
+      width: '100%'
+    },
+    cancel: {
+      text: '录音取消',
+      class: 'cancel',
+      width: '0'
+    }
+  }
+  // 按钮的三种状态
+  let btnRecorderStatusObj = {
+    start: {text: '按住 录音', class: ''},
+    end: {text: '松开 结束', class: 'end-recorder'},
+    delete: {text: '松开 删除', class: 'delete-recorder'}
+  }
+  // recorderManager.start 方法的参数
+  let recorderOpts = {
+    duration: 6000,
+    sampleRate: 44100,
+    numberOfChannels: 1,
+    encodeBitRate: 192000
+  }
   
   export default class Index extends wepy.page {
     config = {
       navigationBarTitleText: 'test'
     }
     components = {
-      'youdao-toast': YoudaoToast
+      'translate-toast': TranslateToast
     }
     data = {
-      text: 'hello world! this is youdao.',
-      youdaoRes: {
-        basic: {}
+      text: 'On the flip side, you have another candidate who, planned their solution, communicated their thoughts well, but coded slowly, not making much progress in their code.',
+      // 要翻译的对象，包括单词和用于TranslateToast 组件watch 用的id
+      translateObj: {
+        word: '',
+        updateId: 0
       },
-      showYoudaoToast: false
+      // 用于切换TranslateToast 组件
+      hideTranslateToast: true,
+      // 录音按钮的三种状态
+      btnRecorderStatus: btnRecorderStatusObj.start,
+      // 用户已经录音的时间, 单位为秒
+      recorderDuration: 0,
+      // 进度条上面的文字
+      progressStatus: Object.assign({}, progressStatusObj.nothing),
+      // 是否丢弃录音
+      isDiscardRecorder: false,
+      hideBtnRecorder: true
     }
     customData = {
-      innerAudio: wepy.createInnerAudioContext()
+      // 用于播放语音合成的 audio
+      innerAudio: wepy.createInnerAudioContext(),
+      // 用于播放录音的 audio
+      recorderAudio: wepy.createInnerAudioContext(),
+      ttsObj: {
+        // 语音合成后返回语音地址 src 链接超时时间戳
+        ttsExpiredTime: '',
+        // 上一次语音合成的源文本
+        ttsOriginText: '',
+        // 如果已经发送一次语音合成请求，isAlreadyRequestTTS === true, 之后再点击按钮不会再发送请求
+        isAlreadyRequestTTS: false,
+        haveRecorder: false
+      },
+      // 录音管理器
+      recorderManager: wepy.getRecorderManager()
     }
     computed = {
       getWordArray () {
@@ -45,70 +128,143 @@
       }
     }
     events = {
-      closeYoudaoToast () {
-        this.showYoudaoToast = false
+      closeTranslateToast () {
+        this.hideTranslateToast = true
+      },
+      showTranslateToast () {
+        this.hideTranslateToast = false
       }
     }
     methods = {
-      translateWord ($event) {
-        let {query, from, to, appKey, salt, sign} = this.getQueryArgs($event)
-        wepy.request({
-          url: `http://openapi.youdao.com/api?q=${query}&from=${from}&to=${to}&appKey=${appKey}&salt=${salt}&sign=${sign}`,
-          method: 'GET',
-          success: (res) => {
-            if (res.data.errorCode > 0) {
-              console.log('youdao translate invoked fail')
-            } else {
-              console.log(res.data)
-              this.youdaoRes = res.data
-              this.showYoudaoToast = true
-              this.$apply()
-            }
-          },
-          fail: (err) => {
-            console.log('err', err)
+      playRecorder () {
+        console.log(this.customData.recorderAudio)
+        this.customData.recorderAudio.play()
+      },
+      startRecord (event) {
+        console.log('start')
+        this.progressStatus = Object.assign({}, progressStatusObj.beDoing)
+        if (this.customData.haveRecorder) {
+          this.progressStatus.width = '100%'
+        }
+        this.customData.recorderManager.start(recorderOpts)
+        this.btnRecorderStatus = btnRecorderStatusObj.end
+      },
+      stopRecord (event) {
+        console.log('end')
+        // 如果超过规定的录制时间, 直接返回
+        if (this.recorderDuration >= recorderOpts.duration / 1000) return
+        this.customData.recorderManager.stop()
+        this.btnRecorderStatus = btnRecorderStatusObj.start
+      },
+      moveRecord (event) {
+        console.log('move')
+        // 如果超过规定的录制时间, 直接返回
+        if (this.recorderDuration >= recorderOpts.duration / 1000) return
+        // recorder-wrapper 的高度为40px
+        let offsetY = event.touches[0].clientY - event.currentTarget.offsetTop
+        if (offsetY < 0 || offsetY > 40) {
+          console.log('leave')
+          this.btnRecorderStatus = btnRecorderStatusObj.delete
+          this.isDiscardRecorder = true
+          return
+        }
+        this.btnRecorderStatus = btnRecorderStatusObj.end
+        this.isDiscardRecorder = false
+      },
+      chooseWord (event) {
+        this.translateObj.word = event.currentTarget.dataset.word
+        this.translateObj.updateId += 1
+      },
+      playTTS () {
+        let {ttsObj, innerAudio} = this.customData
+        // 如果文字没有改变 并且 没有超过语音合成链接超时时间戳, 那么请求合成
+        if (ttsObj.ttsOriginText === this.text && ttsObj.ttsExpiredTime > Date.now()) {
+          innerAudio.play()
+          return
+        }
+        // 如果合成请求正在发送中就直接返回
+        if (ttsObj.isAlreadyRequestTTS) return
+        ttsObj.isAlreadyRequestTTS = true
+        plugin.textToSpeech({
+          lang: 'en_US',
+          tts: true,
+          content: this.text,
+          success: res => {
+            console.log(2)
+            innerAudio.src = res.filename
+            innerAudio.play()
+            ttsObj.ttsExpiredTime = res.expired_time * 1000
+            ttsObj.ttsOriginText = res.origin
+            ttsObj.isAlreadyRequestTTS = false
             this.$apply()
+          },
+          fail: res => {
+            console.log('fail tts', res)
+            ttsObj.isAlreadyRequestTTS = false
           }
         })
-      },
-      playAudio () {
-        console.log('播放音乐')
-        this.customData.innerAudio.play()
       }
     }
-    onLoad() {
-      console.log('onLoad')
-    }
     onReady() {
-      console.log('讯飞语音合成请求')
-      // 发送请求让后台下载讯飞科技的语音合成
-      wepy.request({
-        url: 'http://localhost:8888',
-        data: JSON.stringify({text: this.text}),
-        method: 'POST',
-        success: (res) => {
-          console.log(res.data.url)
-          this.customData.innerAudio.src = res.data.url
-          this.$apply()
-        },
-        fail: (err) => {
-          console.log('err', err)
-          this.$apply()
+      let recorderManager = this.customData.recorderManager
+      recorderManager.onStart(() => {
+        this.isDiscardRecorder = false
+        let duration = recorderOpts.duration / 1000
+        this.recorderDuration = 0
+        console.log('recorder start')
+        if (this.customData.haveRecorder) {
+          recorderManager.recorderTimer = setInterval(() => {
+            this.recorderDuration += 1
+            this.progressStatus.text = `${progressStatusObj.beDoing.text} ${this.recorderDuration} / ${duration}s`
+            this.$apply()
+          }, 1000)
+        } else {
+          recorderManager.recorderTimer = setInterval(() => {
+            this.recorderDuration += 1
+            this.progressStatus.text = `${progressStatusObj.beDoing.text} ${this.recorderDuration} / ${duration}s`
+            this.progressStatus.width = `${this.recorderDuration / duration * 100}%`
+            this.$apply()
+          }, 1000)
         }
       })
-    }
-    // 返回有道翻译 api 调用所需的参数
-    getQueryArgs ($event) {
-      let query = $event.currentTarget.dataset.word
-      query = query.replace(/\W*/g, '')
-      let salt = Date.now().toString()
-      let appKey = ''
-      let key = ''
-      let from = 'EN'
-      let to = 'zh-CHS'
-      let str1 = appKey + query + salt + key
-      let sign = MD5(str1)
-      return {query, from, to, appKey, salt, sign}
+      recorderManager.onPause(() => {
+        console.log('recorder pause')
+      })
+      recorderManager.onStop((res) => {
+        console.log('recorder stop', res)
+        this.customData.recorderAudio.src = res.tempFilePath
+        this.btnRecorderStatus = btnRecorderStatusObj.start
+        clearInterval(recorderManager.recorderTimer)
+        if (this.isDiscardRecorder) {
+          this.progressStatus = Object.assign({}, progressStatusObj.cancel)
+        } else {
+          this.progressStatus = Object.assign({}, progressStatusObj.completed)
+          this.progressStatus.text = `${this.progressStatus.text} ${this.recorderDuration}s`
+          wepy.showModal({
+            title: '练习完成',
+            content: '保存还是删除',
+            cancelText: '删除',
+            confirmText: '保存',
+            success: res => {
+              if (res.confirm) {
+                this.progressStatus.text = '保存成功'
+                this.hideBtnRecorder = false
+                this.customData.haveRecorder = true
+                this.$apply()
+              } else {
+                this.progressStatus.width = 0
+                this.progressStatus.text = '录音取消'
+                this.customData.haveRecorder = false
+                this.$apply()
+              }
+            }
+          })
+        }
+        this.$apply()
+      })
+      recorderManager.onError((res) => {
+        console.log('recorder fail', res.errMsg)
+      })
     }
   }
 </script>

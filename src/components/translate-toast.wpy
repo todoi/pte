@@ -2,10 +2,10 @@
   <view class="wrapper">
     <view class="inner">
       <view class="main">
-        <view>单词释义 【{{res.query}}】</view>
-        <view class="phonetic">音标: [{{res.basic.phonetic}}]</view>
-        <repeat for="{{res.basic.explains}}">
-          <view class="explains">{{item}}</view>
+        <view>单词释义 【{{translateObj.word}}】</view>
+        <view class="phonetic">音标: []</view>
+        <repeat for="">
+          <view class="explains"></view>
         </repeat>
         <view>
           <button class="btn-speech" hover-class="hover-speech" @tap="playSpeech1">发音1</button>
@@ -21,18 +21,42 @@
 </template>
 
 <script>
+  /* global requirePlugin */
   import wepy from 'wepy'
+  let plugin = requirePlugin('WechatSI')
   export default class TranslateToast extends wepy.component {
     props = {
-      res: Object
+      translateObj: Object
     }
     customData = {
       innerAudio1: wepy.createInnerAudioContext(),
       innerAudio2: wepy.createInnerAudioContext()
     }
-    events = {
+    watch = {
+      translateObj () {
+        plugin.translate({
+          lfrom: 'en_US',
+          lto: 'zh_CN',
+          content: this.translateObj.word,
+          tts: true,
+          success: res => {
+            if (res.retcode === 0) {
+              console.log('result', res)
+              this.$emit('showTranslateToast')
+            } else {
+              console.warn('翻译失败', res)
+            }
+          },
+          fail: res => {
+            console.log('网络失败', res)
+          }
+        })
+      }
     }
+    events = {}
     methods = {
+      translateWord () {
+      },
       playSpeech1 () {
         console.log(this.innerAudio1)
         this.customData.innerAudio1.play()
@@ -41,17 +65,10 @@
         this.customData.innerAudio2.play()
       },
       closeToast () {
-        this.$emit('closeYoudaoToast')
+        this.$emit('closeTranslateToast')
       }
     }
-    watch = {
-      res (newRes, oldRes) {
-        this.customData.innerAudio1.src = newRes.basic['uk-speech']
-        this.customData.innerAudio2.src = newRes.basic['us-speech']
-      }
-    }
-    onLoad () {
-    }
+    onLoad () {}
   }
 </script>
 
