@@ -2,8 +2,22 @@
   <view class="container">
     <header :title="headerTitle" :totalNum="totalNum" :process="process"></header>
     <view class="list-wrapper">
-      <repeat for="{{topicList}}">
+      <repeat for="{{questionList}}" item="questionItem" index="idx">
         <view class="list-item">
+          <view class="list-item-inner">
+            <view class="info-wrapper">
+              <view class="info-text">
+                <view class="word">{{idx+1}}. {{questionItem.word}}</view>
+                <view class="introduction">{{questionItem.introduction}}</view>
+              </view>
+              <image class="info-image" wx:if="{{questionItem.img}}" src="{{questionItem.img}}" />
+            </view>
+            <view class="tag-container">
+              <repeat for="{{questionItem.tags}}" item="textItem">
+                <text class="tag">#{{textItem}}</text>
+              </repeat>
+            </view>
+          </view>
         </view>
       </repeat>
     </view>
@@ -24,9 +38,20 @@
       headerTitle: 'read aloud',
       totalNum: 80,
       process: '70%',
-      topicList: [
-        {}
-      ]
+      questionList: [{
+        word: 'tendency',
+        introduction: 'There is a tendency, espacially in the Popular press to concentrate on ...',
+        tags: ['高频机经', '新鲜出炉'],
+        img: 'https://via.placeholder.com/350x350'
+      }, {
+        word: 'tendency',
+        introduction: 'There is a tendency, espacially in the Popular press to concentrate on ...',
+        tags: ['高频机经', '新鲜出炉']
+      }, {
+        word: 'tendency',
+        introduction: 'There is a tendency, espacially in the Popular press to concentrate on ...',
+        tags: ['高频机经', '新鲜出炉']
+      }]
     }
   }
 </script>
@@ -38,14 +63,50 @@
   .list-wrapper {
     width: 100%;
     background: #fff;
-    margin-top: -20rpx;
   }
   .list-item {
     width: 650rpx;
-    height: 163rpx;
+    height: 188rpx;
     display: flex;
     align-items: center;
     margin: 0 auto;
     border-bottom: 2rpx solid #B4C2D3;
+  }
+  .list-item-inner {
+  }
+  .info-wrapper {
+    display: flex;
+  }
+  .info-text{
+  }
+  .word {
+    line-height: 20px;
+    font-size: 14px;
+    color: #2A2A2A;
+    letter-spacing: 0.48px;
+    text-transform: capitalize;
+  }
+  .introduction {
+    line-height: 14px;
+    font-size: 12px;
+    color: #6A6A6A;
+    letter-spacing: 0.21;
+  }
+  .info-image {
+    width: 110rpx;
+    height: 110rpx;
+    flex-shrink: 0;
+    border-radius: 10rpx;
+    vertical-align: middle;
+    margin-left: 28rpx;
+  }
+  .tag-container {
+    line-height: 14px;
+  }
+  .tag {
+    font-size: 10px;
+    color: rgba(212, 220, 229, 0.8);
+    letter-spacing: 0.42px;
+    margin-right: 20rpx;
   }
 </style>
