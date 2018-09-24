@@ -3,13 +3,13 @@
     <view class="inner">
       <view class="main">
         <view>单词释义 【{{translateObj.word}}】</view>
-        <view class="phonetic">音标: []</view>
-        <repeat for="">
-          <view class="explains"></view>
+        <view class="phonetic" hidden="{{!youdaoRes.hasBasic}}">音标: [{{youdaoRes.phonetic}}]</view>
+        <repeat for="{{youdaoRes.explains}}">
+          <view class="explains">{{item}}</view>
         </repeat>
         <view>
           <button class="btn-speech" hover-class="hover-speech" @tap="playSpeech1">发音1</button>
-          <button class="btn-speech" hover-class="hover-speech" @tap="playSpeech2">发音2</button>
+          <button class="btn-speech" hover-class="hover-speech" hidden="{{!youdaoRes.hasBasic}}" @tap="playSpeech2">发音2</button>
         </view>
       </view>
       <view class="footer">
@@ -21,12 +21,14 @@
 </template>
 
 <script>
-  /* global requirePlugin */
   import wepy from 'wepy'
-  let plugin = requirePlugin('WechatSI')
+  import MD5 from '../vendors/md5.js'
   export default class TranslateToast extends wepy.component {
     props = {
       translateObj: Object
+    }
+    data = {
+      youdaoRes: {}
     }
     customData = {
       innerAudio1: wepy.createInnerAudioContext(),
@@ -34,21 +36,36 @@
     }
     watch = {
       translateObj () {
-        plugin.translate({
-          lfrom: 'en_US',
-          lto: 'zh_CN',
-          content: this.translateObj.word,
-          tts: true,
-          success: res => {
-            if (res.retcode === 0) {
-              console.log('result', res)
-              this.$emit('showTranslateToast')
+        let {query, from, to, appKey, salt, sign} = this.getQueryArgs(this.translateObj.word)
+        wepy.request({
+          url: `http://openapi.youdao.com/api?q=${query}&from=${from}&to=${to}&appKey=${appKey}&salt=${salt}&sign=${sign}`,
+          method: 'GET',
+          success: (res) => {
+            if (res.data.errorCode > 0) {
+              console.log('youdao translate invoked fail')
             } else {
-              console.warn('翻译失败', res)
+              console.log(res.data)
+              // 只有查询单个单词时才会出现 basic 字段
+              // 查询单词为hello-wrold 就不会有basic 字段
+              if (res.data.basic) {
+                let {explains, phonetic} = res.data.basic
+                this.youdaoRes = {hasBasic: true, explains, phonetic}
+                this.customData.innerAudio1.src = res.data.basic['uk-speech']
+                this.customData.innerAudio2.src = res.data.basic['us-speech']
+              } else {
+                let {translation, tSpeakUrl} = res.data
+                this.youdaoRes = {
+                  hasBasic: false,
+                  explains: translation
+                }
+                this.customData.innerAudio1.src = tSpeakUrl
+              }
+              this.$emit('showTranslateToast')
+              this.$apply()
             }
           },
-          fail: res => {
-            console.log('网络失败', res)
+          fail: (err) => {
+            console.log('err', err)
           }
         })
       }
@@ -69,6 +86,19 @@
       }
     }
     onLoad () {}
+    // 返回有道翻译 api 调用所需的参数
+    getQueryArgs (word) {
+      let query = word
+      query = query.replace(/[^-\w]*/g, '')
+      let salt = Date.now().toString()
+      let appKey = ''
+      let key = ''
+      let from = 'EN'
+      let to = 'zh-CHS'
+      let str1 = appKey + query + salt + key
+      let sign = MD5(str1)
+      return {query, from, to, appKey, salt, sign}
+    }
   }
 </script>
 

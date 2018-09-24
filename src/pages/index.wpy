@@ -1,270 +1,158 @@
-<style lang="less">
-  .btn-container { text-align: center; }
-  .translate-toast {position: absolute; height: 100%; top: 0; left: 0; width: 100%; background: rgba(0, 0, 0, 0.6);}
-  .recorder-wrapper {position: fixed; bottom: 0; left: 0; width: 100%; display: flex; border-top: 1rpx solid #eee; text-align: center;}
-  .btn-pre, .btn-next, .btn-recorder {width: 33.3333%; line-height: 40px; border-right: 1rpx solid #eee; color: #aaa;}
-  .btn-next {border-right: 0;}
-  .btn-recorder {color: #00A2E8;}
-  .btn-recorder.end-recorder {color: red;}
-  .btn-recorder.delete-recorder {color: #fff; background: red;}
-  .progress-wrapper {width: 100%; height: 40px; position: relative; background: #00A2E8;}
-  .progress {height: 100%; position: absolute; transition: all 1s linear;}
-  .progress-text {width: 100%; height: 100%; position: absolute; display: flex; align-items: center; justify-content: center; color: #fff;}
-  .progress.be-doing {background: red; transition: width 1s linear;}
-  .progress.completed {background: #ddd; transition: all 0.5s linear;}
-</style>
 <template>
   <view class="container">
-    <repeat for="{{getWordArray}}">
-      <text data-word="{{item}}" @longpress="chooseWord">{{item}} </text>
-    </repeat>
-    <view class="btn-container">
-      <button size="mini" @tap="playTTS">播放语音合成</button>
+    <view class="section-search">
+      <text class="search-icon"></text>
+      <input class="search-input" placeholder="搜索题目" placeholder-class="input-placeholder" />
     </view>
-    <translate-toast class="translate-toast" :translateObj.sync="translateObj" hidden="{{hideTranslateToast}}" />
-    <view class="progress-wrapper">
-      <view class="progress {{progressStatus.class}}" style="width:{{progressStatus.width}}"></view>
-      <view class="progress-text">{{progressStatus.text}}</view>
+    <view class="section-swiper">
+      <swiper class="swiper" autoplay="true" circular="true" previous-margin="60rpx" next-margin="60rpx" @change="swiperChange">
+        <repeat for="{{imgUrls}}">
+          <swiper-item class="swiper-item">
+            <image src="{{item}}" class="slide-image {{swiperIndex === index ? 'active' : ''}}"/>
+          </swiper-item>
+        </repeat>
+      </swiper>
     </view>
-    <view class="btn-recorder" hidden="{{hideBtnRecorder}}">
-      <button @tap="playRecorder">播放录音</button>
-    </view>
-    <view class="recorder-wrapper" @touchend="stopRecord" @touchmove="moveRecord">
-      <view class="btn-pre">上一个</view>
-      <view class="btn-recorder {{btnRecorderStatus.class}}" @touchstart="startRecord">{{btnRecorderStatus.text}}</view>
-      <view class="btn-next">下一个</view>
+    <view class="section-footer">
+      <text class="section-title">最新机经</text>
+      <view class="experience-wrapper">
+        <view class="speaking experience"><text class="experience-title">speaking</text></view>
+        <view class="reading experience"><text class="experience-title">reading</text></view>
+        <view class="writing experience"><text class="experience-title">writing</text></view>
+        <view class="listening experience"><text class="experience-title">listening</text></view>
+      </view>
     </view>
   </view>
 </template>
 
 <script>
-  /* global requirePlugin */
   import wepy from 'wepy'
-  import TranslateToast from '../components/translate-toast'
-  let plugin = requirePlugin('WechatSI')
-  // 进度条的四种状态
-  let progressStatusObj = {
-    nothing: {
-      text: '暂无录音',
-      class: '',
-      width: '0'
-    },
-    beDoing: {
-      text: '正在录音',
-      class: 'be-doing',
-      width: '0'
-    },
-    completed: {
-      text: '录音完成',
-      class: 'completed',
-      width: '100%'
-    },
-    cancel: {
-      text: '录音取消',
-      class: 'cancel',
-      width: '0'
-    }
-  }
-  // 按钮的三种状态
-  let btnRecorderStatusObj = {
-    start: {text: '按住 录音', class: ''},
-    end: {text: '松开 结束', class: 'end-recorder'},
-    delete: {text: '松开 删除', class: 'delete-recorder'}
-  }
-  // recorderManager.start 方法的参数
-  let recorderOpts = {
-    duration: 6000,
-    sampleRate: 44100,
-    numberOfChannels: 1,
-    encodeBitRate: 192000
-  }
-  
   export default class Index extends wepy.page {
     config = {
-      navigationBarTitleText: 'test'
-    }
-    components = {
-      'translate-toast': TranslateToast
+      navigationBarTitleText: '首页'
     }
     data = {
-      text: 'On the flip side, you have another candidate who, planned their solution, communicated their thoughts well, but coded slowly, not making much progress in their code.',
-      // 要翻译的对象，包括单词和用于TranslateToast 组件watch 用的id
-      translateObj: {
-        word: '',
-        updateId: 0
-      },
-      // 用于切换TranslateToast 组件
-      hideTranslateToast: true,
-      // 录音按钮的三种状态
-      btnRecorderStatus: btnRecorderStatusObj.start,
-      // 用户已经录音的时间, 单位为秒
-      recorderDuration: 0,
-      // 进度条上面的文字
-      progressStatus: Object.assign({}, progressStatusObj.nothing),
-      // 是否丢弃录音
-      isDiscardRecorder: false,
-      hideBtnRecorder: true
+      imgUrls: [
+        'http://img02.tooopen.com/images/20150928/tooopen_sy_143912755726.jpg',
+        'http://img06.tooopen.com/images/20160818/tooopen_sy_175866434296.jpg',
+        'http://img06.tooopen.com/images/20160818/tooopen_sy_175833047715.jpg'
+      ],
+      swiperIndex: 0
     }
-    customData = {
-      // 用于播放语音合成的 audio
-      innerAudio: wepy.createInnerAudioContext(),
-      // 用于播放录音的 audio
-      recorderAudio: wepy.createInnerAudioContext(),
-      ttsObj: {
-        // 语音合成后返回语音地址 src 链接超时时间戳
-        ttsExpiredTime: '',
-        // 上一次语音合成的源文本
-        ttsOriginText: '',
-        // 如果已经发送一次语音合成请求，isAlreadyRequestTTS === true, 之后再点击按钮不会再发送请求
-        isAlreadyRequestTTS: false,
-        haveRecorder: false
-      },
-      // 录音管理器
-      recorderManager: wepy.getRecorderManager()
-    }
-    computed = {
-      getWordArray () {
-        return this.text.split(' ')
-      }
-    }
-    events = {
-      closeTranslateToast () {
-        this.hideTranslateToast = true
-      },
-      showTranslateToast () {
-        this.hideTranslateToast = false
-      }
-    }
+
     methods = {
-      playRecorder () {
-        console.log(this.customData.recorderAudio)
-        this.customData.recorderAudio.play()
-      },
-      startRecord (event) {
-        console.log('start')
-        this.progressStatus = Object.assign({}, progressStatusObj.beDoing)
-        if (this.customData.haveRecorder) {
-          this.progressStatus.width = '100%'
-        }
-        this.customData.recorderManager.start(recorderOpts)
-        this.btnRecorderStatus = btnRecorderStatusObj.end
-      },
-      stopRecord (event) {
-        console.log('end')
-        // 如果超过规定的录制时间, 直接返回
-        if (this.recorderDuration >= recorderOpts.duration / 1000) return
-        this.customData.recorderManager.stop()
-        this.btnRecorderStatus = btnRecorderStatusObj.start
-      },
-      moveRecord (event) {
-        console.log('move')
-        // 如果超过规定的录制时间, 直接返回
-        if (this.recorderDuration >= recorderOpts.duration / 1000) return
-        // recorder-wrapper 的高度为40px
-        let offsetY = event.touches[0].clientY - event.currentTarget.offsetTop
-        if (offsetY < 0 || offsetY > 40) {
-          console.log('leave')
-          this.btnRecorderStatus = btnRecorderStatusObj.delete
-          this.isDiscardRecorder = true
-          return
-        }
-        this.btnRecorderStatus = btnRecorderStatusObj.end
-        this.isDiscardRecorder = false
-      },
-      chooseWord (event) {
-        this.translateObj.word = event.currentTarget.dataset.word
-        this.translateObj.updateId += 1
-      },
-      playTTS () {
-        let {ttsObj, innerAudio} = this.customData
-        // 如果文字没有改变 并且 没有超过语音合成链接超时时间戳, 那么请求合成
-        if (ttsObj.ttsOriginText === this.text && ttsObj.ttsExpiredTime > Date.now()) {
-          innerAudio.play()
-          return
-        }
-        // 如果合成请求正在发送中就直接返回
-        if (ttsObj.isAlreadyRequestTTS) return
-        ttsObj.isAlreadyRequestTTS = true
-        plugin.textToSpeech({
-          lang: 'en_US',
-          tts: true,
-          content: this.text,
-          success: res => {
-            console.log(2)
-            innerAudio.src = res.filename
-            innerAudio.play()
-            ttsObj.ttsExpiredTime = res.expired_time * 1000
-            ttsObj.ttsOriginText = res.origin
-            ttsObj.isAlreadyRequestTTS = false
-            this.$apply()
-          },
-          fail: res => {
-            console.log('fail tts', res)
-            ttsObj.isAlreadyRequestTTS = false
-          }
-        })
+      swiperChange (event) {
+        this.swiperIndex = event.detail.current
       }
     }
+
     onReady() {
-      let recorderManager = this.customData.recorderManager
-      recorderManager.onStart(() => {
-        this.isDiscardRecorder = false
-        let duration = recorderOpts.duration / 1000
-        this.recorderDuration = 0
-        console.log('recorder start')
-        if (this.customData.haveRecorder) {
-          recorderManager.recorderTimer = setInterval(() => {
-            this.recorderDuration += 1
-            this.progressStatus.text = `${progressStatusObj.beDoing.text} ${this.recorderDuration} / ${duration}s`
-            this.$apply()
-          }, 1000)
-        } else {
-          recorderManager.recorderTimer = setInterval(() => {
-            this.recorderDuration += 1
-            this.progressStatus.text = `${progressStatusObj.beDoing.text} ${this.recorderDuration} / ${duration}s`
-            this.progressStatus.width = `${this.recorderDuration / duration * 100}%`
-            this.$apply()
-          }, 1000)
-        }
-      })
-      recorderManager.onPause(() => {
-        console.log('recorder pause')
-      })
-      recorderManager.onStop((res) => {
-        console.log('recorder stop', res)
-        this.customData.recorderAudio.src = res.tempFilePath
-        this.btnRecorderStatus = btnRecorderStatusObj.start
-        clearInterval(recorderManager.recorderTimer)
-        if (this.isDiscardRecorder) {
-          this.progressStatus = Object.assign({}, progressStatusObj.cancel)
-        } else {
-          this.progressStatus = Object.assign({}, progressStatusObj.completed)
-          this.progressStatus.text = `${this.progressStatus.text} ${this.recorderDuration}s`
-          wepy.showModal({
-            title: '练习完成',
-            content: '保存还是删除',
-            cancelText: '删除',
-            confirmText: '保存',
-            success: res => {
-              if (res.confirm) {
-                this.progressStatus.text = '保存成功'
-                this.hideBtnRecorder = false
-                this.customData.haveRecorder = true
-                this.$apply()
-              } else {
-                this.progressStatus.width = 0
-                this.progressStatus.text = '录音取消'
-                this.customData.haveRecorder = false
-                this.$apply()
-              }
-            }
-          })
-        }
-        this.$apply()
-      })
-      recorderManager.onError((res) => {
-        console.log('recorder fail', res.errMsg)
-      })
     }
   }
 </script>
+
+<style>
+.section-search {
+  width: 610rpx;
+  height: 85rpx;
+  padding: 0 10rpx 0 30rpx;
+  display: flex;
+  align-items: center;
+  margin: 50rpx auto 0;
+  box-shadow: 0 5rpx 20rpx 0 #E8ECF1;
+  border-radius: 10rpx;
+}
+.search-icon {
+  display: inline-block;
+  width: 33rpx;
+  height: 33rpx;
+  background-image: url("data:image/svg+xml,%3Csvg t='1537756169994' class='icon' style='' viewBox='0 0 1024 1024' version='1.1' xmlns='http://www.w3.org/2000/svg' p-id='1057' xmlns:xlink='http://www.w3.org/1999/xlink' width='200' height='200'%3E%3Cdefs%3E%3Cstyle type='text/css'%3E%3C/style%3E%3C/defs%3E%3Cpath d='M948.032 902.784l-206.976-206.976C797.696 628.928 832 542.528 832 448c0-212.064-171.936-384-384-384S64 235.936 64 448s171.936 384 384 384c94.528 0 180.928-34.304 247.808-90.912l206.976 206.976c14.016 14.016 35.488 15.232 48 2.72C963.264 938.272 962.048 916.8 948.032 902.784zM448 768C271.264 768 128 624.736 128 448S271.264 128 448 128s320 143.264 320 320S624.736 768 448 768z' p-id='1058' fill='%23b4c2d3'%3E%3C/path%3E%3C/svg%3E");
+  background-size: cover;
+  flex-shrink: 0;
+}
+.search-input {
+  height: 100%;
+  flex-grow: 1;
+  margin-left: 26rpx;
+}
+.input-placeholder {
+  line-height: 16px;
+  font-size: 14px;
+  color: #B4C2D3;
+  letter-spacing: 0.42px;
+}
+.section-swiper {
+  margin-top: 50rpx;
+}
+.swiper {
+  width: 750rpx;
+  height: 350rpx;
+  margin: 0 auto;
+}
+.swiper-item {
+  overflow: hidden;
+  border-radius: 10rpx;
+}
+.slide-image {
+  width: 650rpx;
+  height: 350rpx;
+  position: absolute;
+  left: 50%;
+  margin-left: -325rpx;
+  transform: scale(0.9);
+  transition: all .2s ease-in;
+  border-radius: 10rpx;
+}
+.slide-image.active {
+  transform: scale(1);
+}
+.section-footer {
+  width: 650rpx;
+  margin: 45rpx auto 0;
+}
+.section-title {
+  line-height: 25px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #4A4A4A;
+  letter-spacing: 0.42px;
+}
+.experience-wrapper {
+  margin: 30rpx 0 20rpx;
+  height: 623rpx;
+  display: flex;
+  justify-content: space-between;
+  flex-flow: column wrap;
+}
+.experience {
+  width: 315rpx;
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 10rpx;
+}
+.speaking {
+  height: 353rpx;
+  background: #1E88A8;
+}
+.writing {
+  height: 250rpx;
+  background: #7EC7D8;
+}
+.reading {
+  height: 250rpx;
+  background: #86B81B;
+}
+.listening {
+  height: 353rpx;
+  background: #5AB5B2;
+}
+.experience-title {
+  position: absolute;
+  bottom: 40rpx;
+  left: 40rpx;
+  line-height: 32px;
+  font-size: 24px;
+  text-transform: capitalize;
+  color: #fff;
+}
+</style>
