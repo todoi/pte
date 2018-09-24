@@ -1,0 +1,51 @@
+<template>
+  <view class="container">
+    <header :title="headerTitle" :totalNum="totalNum" :process="process"></header>
+    <view class="list-wrapper">
+      <repeat for="{{topicList}}">
+        <view class="list-item">
+        </view>
+      </repeat>
+    </view>
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  import Header from '../components/header'
+  export default class Questions extends wepy.page {
+    config = {
+      navigationBarTitleText: '题目列表'
+    }
+    components = {
+      header: Header
+    }
+    data = {
+      headerTitle: 'read aloud',
+      totalNum: 80,
+      process: '70%',
+      topicList: [
+        {}
+      ]
+    }
+  }
+</script>
+
+<style>
+  .container {
+    margin-top: 20rpx;
+  }
+  .list-wrapper {
+    width: 100%;
+    background: #fff;
+    margin-top: -20rpx;
+  }
+  .list-item {
+    width: 650rpx;
+    height: 163rpx;
+    display: flex;
+    align-items: center;
+    margin: 0 auto;
+    border-bottom: 2rpx solid #B4C2D3;
+  }
+</style>

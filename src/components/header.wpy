@@ -1,0 +1,63 @@
+<template>
+  <view class="header">
+    <view class="text-wrapper">
+      <view class="title">{{title}}</view>
+      <view class="text-small">共 {{totalNum}} 题</view>
+      <view class="text-small">{{process}} 已做过</view>
+    </view>
+  </view>
+</template>
+
+<script>
+import wepy from 'wepy'
+export default class Header extends wepy.component {
+  props = {
+    title: String,
+    totalNum: Number,
+    process: String
+  }
+  onLoad () {
+    console.log(this.title)
+  }
+}
+</script>
+
+<style>
+  .header {
+    height: 352rpx;
+    position: relative;
+    background: #1E88A8;
+    padding-top: 1rpx;
+  }
+  .header::after {
+    content: "";
+    position: absolute;
+    width: 100%;
+    bottom: 0;
+    left: 0;
+    height: 33rpx;
+    border-radius: 20rpx 20rpx 0 0;
+    background: #fff;
+  }
+  .text-wrapper{
+    position: absolute;
+    left: 40rpx;
+    bottom: 70rpx;
+  }
+  .title {
+    line-height: 33px;
+    font-size: 24px;
+    color: #fff;
+    text-transform: capitalize;
+    letter-spacing: 0.55px;
+    text-shadow: 0 0 10px rgba(0,0,0,0.50);
+  }
+  .text-small {
+    padding-left: 3rpx;
+    font-size: 12px;
+    line-height: 16px;
+    color: rgba(255, 255, 255, 0.8);
+    letter-spacing: 0.42px;
+    text-shadow: 0 0 10px rgba(0,0,0,0.50);
+  }
+</style>

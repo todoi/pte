@@ -1,0 +1,91 @@
+<template>
+  <view class="container">
+    <header :title="headerTitle" :totalNum="totalNum" :process="process"></header>
+    <view class="list-wrapper">
+      <repeat for="{{topicList}}">
+        <view class="list-item">
+          <view class="abbrev">{{item.abbrev}}</view>
+          <view class="detail">
+            <view class="expand">{{item.expand}}</view>
+            <view class="rule">{{item.rule}}</view>
+          </view>
+        </view>
+      </repeat>
+    </view>
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  import Header from '../components/header'
+  export default class Topics extends wepy.page {
+    config = {
+      navigationBarTitleText: '题型列表'
+    }
+    components = {
+      header: Header
+    }
+    data = {
+      headerTitle: 'speaking',
+      totalNum: 365,
+      process: '34%',
+      topicList: [
+        {abbrev: 'ra', expand: 'read aloud', rule: '40秒准备时间, 40秒朗读时间'},
+        {abbrev: 'rs', expand: 'repeat sentence', rule: '音频结束后三秒, 重复听到的句子'},
+        {abbrev: 'ri', expand: 'read aloud', rule: '40秒准备时间, 40秒朗读时间'},
+        {abbrev: 'asq', expand: 'answer short question', rule: '40秒准备时间, 40秒朗读时间'}
+      ]
+    }
+  }
+</script>
+
+<style>
+  .container {
+    margin-top: 20rpx;
+  }
+  .list-wrapper {
+    width: 100%;
+    background: #fff;
+    margin-top: -20rpx;
+  }
+  .list-item {
+    width: 650rpx;
+    height: 163rpx;
+    display: flex;
+    align-items: center;
+    margin: 0 auto;
+    border-bottom: 2rpx solid #B4C2D3;
+  }
+  .list-item:last-child{
+    border-bottom: none;
+  }
+  .abbrev {
+    width: 80rpx;
+    height: 60rpx;
+    border-radius: 10rpx;
+    text-align: center;
+    font-size: 12px;
+    line-height: 60rpx;
+    color: #1E88A8;
+    letter-spacing: 0.48px;
+    text-transform: uppercase;
+    border: 3rpx solid #1E88A8;
+  }
+  .detail {
+    margin-left: 40rpx;
+  }
+  .expand {
+    line-height: 20px;
+    font-size: 14px;
+    color: #2a2a2a;
+    letter-spacing: 0.48px;
+    text-transform: capitalize;
+  }
+  .rule {
+    margin-top: 10rpx;
+    line-height: 16px;
+    font-size: 12px;
+    color: #8a8a8a;
+    letter-spacing: 0.42px;
+  }
+</style>
