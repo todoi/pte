@@ -7,10 +7,10 @@ import wepy from 'wepy'
 export default class extends wepy.app {
   config = {
     pages: [
-      'pages/questions',
-      'pages/topics',
+      'pages/tts',
       'pages/index',
-      'pages/tts'
+      'pages/questions',
+      'pages/topics'
     ],
     window: {
       backgroundTextStyle: 'light',

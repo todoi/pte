@@ -119,6 +119,7 @@
 }
 .experience-wrapper {
   margin: 30rpx 0 20rpx;
+  width: 650rpx;
   height: 623rpx;
   display: flex;
   justify-content: space-between;
@@ -133,6 +134,7 @@
 .speaking {
   height: 353rpx;
   background: #1E88A8;
+  margin-right: 20rpx;
 }
 .writing {
   height: 250rpx;

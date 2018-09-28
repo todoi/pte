@@ -72,12 +72,8 @@
     margin: 0 auto;
     border-bottom: 2rpx solid #B4C2D3;
   }
-  .list-item-inner {
-  }
   .info-wrapper {
     display: flex;
-  }
-  .info-text{
   }
   .word {
     line-height: 20px;
@@ -105,7 +101,8 @@
   }
   .tag {
     font-size: 10px;
-    color: rgba(212, 220, 229, 0.8);
+    /* color: rgba(212, 220, 229, 0.9); */
+    color: #B4C2D3;
     letter-spacing: 0.42px;
     margin-right: 20rpx;
   }
